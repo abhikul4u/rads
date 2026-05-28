@@ -33,7 +33,7 @@ wandb/
 *.onnx.data
 
 # Dataset (pulled from Roboflow at runtime)
-data/
+/data/
 
 # OS
 .DS_Store
