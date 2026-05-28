@@ -73,6 +73,15 @@ class DistillationTrainer(DetectionTrainer):
         overrides: Dict[str, Any] | None = None,
         _callbacks=None,
     ):
+        # Pre-initialize hook handles so __del__ doesn't crash if construction fails partway
+        self._s_handle = None
+        self._t_handle = None
+
+        # Ultralytics requires a base cfg to merge overrides into
+        if cfg is None:
+            from ultralytics.cfg import DEFAULT_CFG
+            cfg = DEFAULT_CFG
+
         overrides = overrides or {}
         self._teacher_weights: str = overrides.pop("teacher_weights")
         self._distill_T: float = overrides.pop("distill_T", 4.0)

@@ -24,7 +24,7 @@ from ultralytics.utils.tal import bbox2dist
 class SizeAwareBboxLoss(BboxLoss):
     """`BboxLoss` + inverse-sqrt-area reweighting on small objects."""
 
-    def __init__(self, reg_max: int, alpha: float = 1.0, eps: float = 1e-3):
+    def __init__(self, reg_max: int, alpha: float = 0.5, eps: float = 1e-3):
         """
         Args:
             reg_max: distribution focal loss bin count (Ultralytics default 16).
@@ -60,7 +60,7 @@ class SizeAwareBboxLoss(BboxLoss):
         area_norm = (area / (coord_max ** 2 + 1e-9)).clamp(min=self.eps, max=1.0)
         size_w = area_norm.pow(-0.5 * self.alpha).unsqueeze(-1)
         # Stabilise: clamp so a single tiny GT can't dominate.
-        size_w = size_w.clamp(max=10.0)
+        size_w = size_w.clamp(max=4.0)
 
         # IoU loss with size weighting.
         iou = bbox_iou(pred_bboxes[fg_mask], tb_fg, xywh=False, CIoU=True)
@@ -83,7 +83,7 @@ class SizeAwareBboxLoss(BboxLoss):
         return loss_iou, loss_dfl
 
 
-def install_size_aware_loss(alpha: float = 1.0) -> None:
+def install_size_aware_loss(alpha: float = 0.5) -> None:
     """Monkey-patch `v8DetectionLoss.__init__` to use `SizeAwareBboxLoss`.
 
     Call this once before constructing the YOLO trainer. Reversible: call
