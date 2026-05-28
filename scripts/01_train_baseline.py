@@ -3,7 +3,7 @@
 
 Matches Table 4.2 of the thesis:
     100 epochs, 768px, AdamW, lr0=5e-4, cosine LR,
-    batch=12 (constrained), AMP on, patience=50, seed configurable.
+    batch=12 (constrained), AMP on, patience=25, seed configurable.
 
 On A100 80GB we bump batch to 32 — keeps the spec spirit (memory-bound batch)
 while exploiting the new GPU. Effective LR is rescaled with linear scaling rule.
@@ -30,7 +30,7 @@ def main():
     ap.add_argument("--imgsz", type=int, default=768)
     ap.add_argument("--batch", type=int, default=32, help="A100 80GB friendly")
     ap.add_argument("--lr0", type=float, default=5e-4)
-    ap.add_argument("--patience", type=int, default=50)
+    ap.add_argument("--patience", type=int, default=25)
     ap.add_argument("--name", default=None, help="Run name override")
     ap.add_argument("--no-wandb", action="store_true")
     args = ap.parse_args()

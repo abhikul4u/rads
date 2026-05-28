@@ -45,7 +45,7 @@ def main():
     ap.add_argument("--imgsz", type=int, default=768)
     ap.add_argument("--batch", type=int, default=32)
     ap.add_argument("--lr0", type=float, default=5e-4)
-    ap.add_argument("--patience", type=int, default=50)
+    ap.add_argument("--patience", type=int, default=25)
     ap.add_argument("--size-aware-alpha", type=float, default=1.0)
     ap.add_argument("--name", default=None)
     ap.add_argument("--no-wandb", action="store_true")

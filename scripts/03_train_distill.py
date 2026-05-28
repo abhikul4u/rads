@@ -32,7 +32,7 @@ def main():
     ap.add_argument("--imgsz", type=int, default=768)
     ap.add_argument("--batch", type=int, default=64, help="student is small, bigger batch ok")
     ap.add_argument("--lr0", type=float, default=5e-4)
-    ap.add_argument("--patience", type=int, default=50)
+    ap.add_argument("--patience", type=int, default=25)
     ap.add_argument("--task-w", type=float, default=0.4)
     ap.add_argument("--kl-w", type=float, default=0.4)
     ap.add_argument("--feat-w", type=float, default=0.2)
