@@ -1,0 +1,54 @@
+name: smoke-test
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:  # manual trigger
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10  # generous ceiling; real run is <2 min
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install minimal deps for smoke test
+        # We don't install full requirements.txt — TF + onnx2tf are heavy and
+        # the smoke test doesn't need them (no TFLite export, no Roboflow pull).
+        run: |
+          python -m pip install --upgrade pip
+          pip install \
+            "torch==2.4.0+cpu" "torchvision==0.19.0+cpu" \
+            --index-url https://download.pytorch.org/whl/cpu
+          pip install \
+            "ultralytics==8.3.40" \
+            "numpy<2" \
+            "pyyaml>=6.0" \
+            "opencv-python-headless==4.10.0.84" \
+            "onnx==1.16.2" \
+            "onnxsim==0.4.36"
+
+      - name: Run smoke test
+        env:
+          WANDB_MODE: disabled
+          YOLO_VERBOSE: "False"
+        run: |
+          python tests/smoke_test.py
+
+      - name: Upload artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-debug
+          path: |
+            runs/
+            *.log
+          retention-days: 7

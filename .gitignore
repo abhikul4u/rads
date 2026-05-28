@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Training artifacts (regenerated on each run, can be huge)
+artifacts/runs/
+artifacts/exports/
+artifacts/calibration/
+runs/
+wandb/
+
+# Model weights (too big for git; track via W&B / RunPod volume)
+*.pt
+*.pth
+*.onnx
+*.tflite
+*.onnx.data
+
+# Dataset (pulled from Roboflow at runtime)
+data/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local environment files
+.env
+local.properties
+*.local
+
+# Logs
+*.log

@@ -1,0 +1,17 @@
+# RADS 3-class dataset config.
+# Paths are filled in at runtime by 00_pull_dataset.py — this file is a
+# template; the real one lives at $RADS_DATA/<project>-v<version>/data.yaml
+# produced by Roboflow. We point training scripts at THAT file, not this one.
+#
+# Class order is LOCKED. Do not reorder without re-exporting from Roboflow.
+
+path: PLACEHOLDER  # overwritten by Roboflow export
+train: train/images
+val: valid/images
+test: test/images
+
+nc: 3
+names:
+  0: MH      # Manhole (open)
+  1: PH      # Pothole
+  2: WLPH    # Waterlogged Pothole
