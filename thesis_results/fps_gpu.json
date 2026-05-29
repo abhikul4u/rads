@@ -1,0 +1,32 @@
+{
+  "baseline": {
+    "device": "NVIDIA A100-SXM4-80GB",
+    "imgsz": 768,
+    "n_iters": 200,
+    "latency_ms_mean": 11.453366242349148,
+    "latency_ms_std": 0.8571466461838579,
+    "latency_ms_p50": 11.374853551387787,
+    "latency_ms_p95": 11.557160969823599,
+    "fps_mean": 87.31057567184672
+  },
+  "combined": {
+    "device": "NVIDIA A100-SXM4-80GB",
+    "imgsz": 768,
+    "n_iters": 200,
+    "latency_ms_mean": 16.052007609978318,
+    "latency_ms_std": 0.534631204829786,
+    "latency_ms_p50": 15.948621556162834,
+    "latency_ms_p95": 16.198839247226715,
+    "fps_mean": 62.29750348351291
+  },
+  "student": {
+    "device": "NVIDIA A100-SXM4-80GB",
+    "imgsz": 640,
+    "n_iters": 200,
+    "latency_ms_mean": 6.837517078965902,
+    "latency_ms_std": 0.1967799409290507,
+    "latency_ms_p50": 6.790148094296455,
+    "latency_ms_p95": 7.078929618000983,
+    "fps_mean": 146.25191987838352
+  }
+}

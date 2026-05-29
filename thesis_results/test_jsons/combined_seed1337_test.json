@@ -1,0 +1,11 @@
+{
+  "map50": 0.7013949462428483,
+  "map50_95": 0.4217007629155841,
+  "precision": 0.7364099011365616,
+  "recall": 0.6669091047005554,
+  "AP50_MH": 0.8618633372757387,
+  "AP50_PH": 0.5609755291288838,
+  "AP50_WLPH": 0.6813459723239225,
+  "val_dir": "runs/detect/combined_seed1337_test",
+  "confusion_matrix_path": "runs/detect/combined_seed1337_test/confusion_matrix.png"
+}

@@ -1,0 +1,11 @@
+{
+  "map50": 0.7324849856390071,
+  "map50_95": 0.4209736827957454,
+  "precision": 0.7726170299647346,
+  "recall": 0.6649556036193215,
+  "AP50_MH": 0.8573278265395936,
+  "AP50_PH": 0.5942487064770238,
+  "AP50_WLPH": 0.745878423900404,
+  "val_dir": "runs/detect/distill_seed2024_test",
+  "confusion_matrix_path": "runs/detect/distill_seed2024_test/confusion_matrix.png"
+}

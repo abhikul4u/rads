@@ -1,0 +1,11 @@
+{
+  "map50": 0.725645664273738,
+  "map50_95": 0.4385492225288486,
+  "precision": 0.7134788218768828,
+  "recall": 0.7223341375493219,
+  "AP50_MH": 0.8574902520943153,
+  "AP50_PH": 0.5746309368661755,
+  "AP50_WLPH": 0.7448158038607234,
+  "val_dir": "runs/detect/p2_seed2024_test",
+  "confusion_matrix_path": "runs/detect/p2_seed2024_test/confusion_matrix.png"
+}
