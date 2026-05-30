@@ -1,20 +1,34 @@
-# Core
+# =============================================================================
+# Author: Rutuja Kulkarni
+# RADS Layer 3 — Pinned Python Dependencies
+# =============================================================================
+# Exact pins for the RADS model-development pipeline. Versions are locked (==)
+# for the components whose APIs the pipeline is sensitive to so RunPod A100
+# runs are reproducible; loose lower bounds (>=) are used where any recent
+# release is fine. Dependencies are grouped by pipeline stage below. Do not
+# bump these without re-running the smoke suite — Ultralytics, torch and the
+# ONNX/TF export toolchain are tightly coupled.
+
+# Core — the deep-learning stack. Ultralytics YOLOv8 plus its matched
+# torch/torchvision build (these three versions must stay compatible).
 ultralytics==8.3.40
 torch==2.4.1
 torchvision==0.19.1
 
-# Data / Roboflow
+# Data / Roboflow — dataset download (Roboflow), YAML config parsing, and the
+# image I/O libraries used during preprocessing/augmentation.
 roboflow==1.1.48
 pyyaml>=6.0
 opencv-python-headless==4.10.0.84
 pillow>=10.0
 numpy<2.0           # ultralytics 8.3.x still depends on numpy<2
 
-# Tracking
+# Tracking — experiment logging and metrics dashboards (W&B + TensorBoard).
 wandb==0.18.5
 tensorboard>=2.16
 
-# Quantization / export
+# Quantization / export — convert trained weights to ONNX and on to TFLite for
+# the mobile deployment target; onnxsim/sng4onnx clean up the exported graph.
 onnx==1.16.2
 onnxruntime-gpu==1.19.2
 onnxsim==0.4.36
@@ -23,12 +37,13 @@ onnx2tf==1.26.3
 sng4onnx>=1.0.4
 #tflite-support==0.4.4
 
-# Eval / plotting
+# Eval / plotting — metrics computation and figure generation for the thesis
+# (confusion matrices, PR curves, result tables).
 scikit-learn>=1.4
 matplotlib>=3.8
 seaborn>=0.13
 pandas>=2.2
 tabulate>=0.9
 
-# Mobile benchmarking helper
+# Mobile benchmarking helper — process/memory introspection during latency runs.
 psutil>=5.9

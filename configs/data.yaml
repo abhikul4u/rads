@@ -1,17 +1,33 @@
-# RADS 3-class dataset config.
-# Paths are filled in at runtime by 00_pull_dataset.py — this file is a
-# template; the real one lives at $RADS_DATA/<project>-v<version>/data.yaml
-# produced by Roboflow. We point training scripts at THAT file, not this one.
+# =============================================================================
+# Author: Rutuja Kulkarni
+# RADS Layer 3 — Dataset Configuration (Ultralytics data.yaml)
+# =============================================================================
+# This is the Ultralytics-format dataset descriptor for the Road Anomaly
+# Detection System (RADS). It tells the YOLOv8 trainer/validator where to find
+# the image splits and how many classes there are, plus the canonical class
+# index -> name mapping. Every training, validation and export script in the
+# pipeline consumes a file in exactly this shape.
 #
-# Class order is LOCKED. Do not reorder without re-exporting from Roboflow.
+# IMPORTANT — this checked-in copy is only a TEMPLATE. The image-split paths
+# below are placeholders; the real, runnable data.yaml is generated at runtime
+# by scripts/00_pull_dataset.py when it downloads the labelled dataset from
+# Roboflow. That generated file lives at
+#   $RADS_DATA/<project>-v<version>/data.yaml
+# and is what the training scripts are actually pointed at — not this template.
+#
+# The class ORDER below is LOCKED: the integer indices are baked into the
+# exported label files and the trained model weights. Re-ordering or renaming
+# here without re-exporting the dataset from Roboflow would silently mislabel
+# every prediction, so it must never be changed by hand.
 
-path: PLACEHOLDER  # overwritten by Roboflow export
-train: train/images
-val: valid/images
-test: test/images
+path: PLACEHOLDER  # Dataset root; overwritten by the Roboflow export at runtime.
+train: train/images  # Training image split, relative to `path`.
+val: valid/images    # Validation split used for mAP/early-stopping each epoch.
+test: test/images    # Held-out test split, used only for final reporting.
 
-nc: 3
+nc: 3  # Number of detection classes (must match the length of `names` below).
+# Class index -> human-readable label. The 3 RADS road-anomaly categories:
 names:
-  0: MH      # Manhole (open)
-  1: PH      # Pothole
-  2: WLPH    # Waterlogged Pothole
+  0: MH      # Manhole (open) — index 0, must stay first.
+  1: PH      # Pothole (dry) — index 1.
+  2: WLPH    # Waterlogged Pothole — index 2; visually distinct (standing water).

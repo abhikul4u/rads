@@ -1,14 +1,28 @@
-# YOLOv8l + CBAM attention in the PANet neck.
-# CBAM is inserted after each C2f block in the head. Param budget ~0.3M.
+# =============================================================================
+# Author: Rutuja Kulkarni
+# RADS Layer 3 — Enhancement #1: CBAM Attention (YOLOv8l + CBAM)
+# =============================================================================
+# This config is the baseline YOLOv8l backbone/neck with CBAM (Convolutional
+# Block Attention Module) blocks inserted after each C2f in the PANet neck.
+# CBAM applies sequential channel-then-spatial attention, letting the network
+# re-weight feature maps to emphasise the road-anomaly regions (manholes /
+# potholes) and suppress background clutter (lane markings, shadows). The
+# backbone is UNCHANGED from baseline.yaml; the only difference is the four
+# extra `CBAM` layers in the head, which is why this is a clean ablation.
 #
-# YAML convention follows Conv: `[-1, 1, CBAM, [c2, reduction, kernel_size]]`
-# where c2 is the post-width-scaled channel count of the preceding C2f.
-# CBAM is channel-preserving, so c2 = c1 always.
+# The custom CBAM module is registered with Ultralytics' parser by
+# src/modules (see src.modules.__init__). Its YAML signature mirrors Conv:
+#   [from, repeats, CBAM, [c2, reduction, kernel_size]]
+# where c2 is the (post-width-scaling) channel count of the preceding C2f.
+# CBAM is channel-preserving, so the output channels equal the input (c2 = c1),
+# meaning it can be dropped in anywhere without changing downstream shapes.
+# Extra parameter budget vs baseline is only ~0.3M — attention is cheap.
 
-nc: 3
+nc: 3  # Default class count (overridden at runtime from data.yaml).
 scales:
-  l: [1.00, 1.00, 512]
+  l: [1.00, 1.00, 512]  # depth, width, max_channels — identical to baseline (large).
 
+# Backbone — identical to baseline.yaml (no attention added in the backbone).
 backbone:
   - [-1, 1, Conv,  [64, 3, 2]]       # 0
   - [-1, 1, Conv,  [128, 3, 2]]      # 1
@@ -21,25 +35,31 @@ backbone:
   - [-1, 3, C2f,   [1024, True]]     # 8  (scaled to 512)
   - [-1, 1, SPPF,  [1024, 5]]        # 9  (scaled to 512)
 
+# Head (PANet) with a CBAM block appended after every C2f fusion stage.
+# CBAM args are [channels, reduction, kernel_size]: reduction=16 is the
+# channel-attention MLP bottleneck ratio (standard CBAM default, keeps params
+# low) and kernel_size=7 is the spatial-attention conv kernel (CBAM default,
+# gives a wide receptive field for the spatial gate). Detection indices shift
+# vs baseline because each CBAM adds a layer, so the Detect inputs are 17/21/25.
 head:
   - [-1, 1, nn.Upsample, [None, 2, 'nearest']]   # 10
-  - [[-1, 6], 1, Concat, [1]]                    # 11
+  - [[-1, 6], 1, Concat, [1]]                    # 11  fuse with backbone P4.
   - [-1, 3, C2f, [512]]                          # 12  -> c=512
-  - [-1, 1, CBAM, [512, 16, 7]]                  # 13  P4 attention
+  - [-1, 1, CBAM, [512, 16, 7]]                  # 13  P4 attention (refine fused mid-level).
 
   - [-1, 1, nn.Upsample, [None, 2, 'nearest']]   # 14
-  - [[-1, 4], 1, Concat, [1]]                    # 15
+  - [[-1, 4], 1, Concat, [1]]                    # 15  fuse with backbone P3.
   - [-1, 3, C2f, [256]]                          # 16  -> c=256
-  - [-1, 1, CBAM, [256, 16, 7]]                  # 17  P3/small
+  - [-1, 1, CBAM, [256, 16, 7]]                  # 17  P3/small attention — detect input.
 
-  - [-1, 1, Conv, [256, 3, 2]]                   # 18
-  - [[-1, 13], 1, Concat, [1]]                   # 19
+  - [-1, 1, Conv, [256, 3, 2]]                   # 18  bottom-up downsample.
+  - [[-1, 13], 1, Concat, [1]]                   # 19  re-fuse with attended P4 (layer 13).
   - [-1, 3, C2f, [512]]                          # 20  -> c=512
-  - [-1, 1, CBAM, [512, 16, 7]]                  # 21
+  - [-1, 1, CBAM, [512, 16, 7]]                  # 21  P4 attention — detect input.
 
-  - [-1, 1, Conv, [512, 3, 2]]                   # 22
-  - [[-1, 9], 1, Concat, [1]]                    # 23
+  - [-1, 1, Conv, [512, 3, 2]]                   # 22  bottom-up downsample.
+  - [[-1, 9], 1, Concat, [1]]                    # 23  re-fuse with SPPF output (layer 9).
   - [-1, 3, C2f, [1024]]                         # 24  (scaled to 512)
-  - [-1, 1, CBAM, [512, 16, 7]]                  # 25
+  - [-1, 1, CBAM, [512, 16, 7]]                  # 25  P5 attention — detect input.
 
-  - [[17, 21, 25], 1, Detect, [nc]]
+  - [[17, 21, 25], 1, Detect, [nc]]              # 3-scale detect on the attended features.

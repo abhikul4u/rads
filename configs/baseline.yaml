@@ -1,40 +1,58 @@
-# YOLOv8l baseline — vanilla Ultralytics architecture, no modifications.
-# Used for ablation reference. nc set dynamically by train script.
+# =============================================================================
+# Author: Rutuja Kulkarni
+# RADS Layer 3 — Baseline Model Architecture (YOLOv8l)
+# =============================================================================
+# This is the UNMODIFIED Ultralytics YOLOv8-large architecture, reproduced here
+# so the RADS ablation study has a fixed, version-controlled reference point.
+# Every enhancement config (cbam / p2head / sizeaware / combined) is described
+# as a delta against THIS file, so it must stay vanilla. The model graph is
+# expressed in Ultralytics' standard "from, repeats, module, args" list format:
+# each layer is [from, number, module, args] where `from = -1` means "take the
+# previous layer's output". The trainer parses these lists to build the network.
+#
+# nc below is a default; the training script overrides it dynamically from the
+# active data.yaml so the config never has to be edited per dataset.
 
 # Parameters
-nc: 3
+nc: 3  # Default class count (overridden at runtime from data.yaml -> 3 RADS classes).
 scales:
+  # Compound-scaling factors for the "large" variant. depth multiplies the
+  # number of C2f block repeats, width multiplies channel counts, and
+  # max_channels caps any layer's channel count after width scaling.
   l: [1.00, 1.00, 512]   # depth, width, max_channels
 
-# Backbone
+# Backbone — feature extractor. Each Conv with stride 2 halves spatial size,
+# producing the standard P1..P5 pyramid (P3=stride8, P4=stride16, P5=stride32).
 backbone:
-  - [-1, 1, Conv,  [64, 3, 2]]       # 0  P1/2
-  - [-1, 1, Conv,  [128, 3, 2]]      # 1  P2/4
-  - [-1, 3, C2f,   [128, True]]
-  - [-1, 1, Conv,  [256, 3, 2]]      # 3  P3/8
-  - [-1, 6, C2f,   [256, True]]
-  - [-1, 1, Conv,  [512, 3, 2]]      # 5  P4/16
+  - [-1, 1, Conv,  [64, 3, 2]]       # 0  P1/2  — stem, 3x3 stride-2 conv.
+  - [-1, 1, Conv,  [128, 3, 2]]      # 1  P2/4  — downsample to 1/4 resolution.
+  - [-1, 3, C2f,   [128, True]]      #    C2f (CSP) block, shortcut=True (residual).
+  - [-1, 1, Conv,  [256, 3, 2]]      # 3  P3/8  — small-object feature level.
+  - [-1, 6, C2f,   [256, True]]      #    deeper stage (6 repeats * depth scale).
+  - [-1, 1, Conv,  [512, 3, 2]]      # 5  P4/16 — medium-object feature level.
   - [-1, 6, C2f,   [512, True]]
-  - [-1, 1, Conv,  [1024, 3, 2]]     # 7  P5/32
+  - [-1, 1, Conv,  [1024, 3, 2]]     # 7  P5/32 — large-object / deepest feature level.
   - [-1, 3, C2f,   [1024, True]]
-  - [-1, 1, SPPF,  [1024, 5]]        # 9
+  - [-1, 1, SPPF,  [1024, 5]]        # 9  Spatial Pyramid Pooling-Fast: multi-scale context.
 
-# Head (PANet)
+# Head (PANet) — bidirectional feature fusion feeding 3 detection scales.
 head:
+  # Top-down pathway: upsample deep features and fuse with shallower backbone maps.
   - [-1, 1, nn.Upsample, [None, 2, 'nearest']]
-  - [[-1, 6], 1, Concat, [1]]
-  - [-1, 3, C2f, [512]]              # 12  (P4)
+  - [[-1, 6], 1, Concat, [1]]        #    concat upsampled P5 with backbone P4 (layer 6).
+  - [-1, 3, C2f, [512]]              # 12  (P4) fused mid-level features.
 
   - [-1, 1, nn.Upsample, [None, 2, 'nearest']]
-  - [[-1, 4], 1, Concat, [1]]
-  - [-1, 3, C2f, [256]]              # 15  (P3/8-small)
+  - [[-1, 4], 1, Concat, [1]]        #    concat with backbone P3 (layer 4).
+  - [-1, 3, C2f, [256]]              # 15  (P3/8-small) — small-object detect feature.
 
+  # Bottom-up pathway: downsample fused maps back up the pyramid (PANet).
   - [-1, 1, Conv, [256, 3, 2]]
-  - [[-1, 12], 1, Concat, [1]]
-  - [-1, 3, C2f, [512]]              # 18  (P4/16-medium)
+  - [[-1, 12], 1, Concat, [1]]       #    re-fuse with the top-down P4 (layer 12).
+  - [-1, 3, C2f, [512]]              # 18  (P4/16-medium) — medium-object detect feature.
 
   - [-1, 1, Conv, [512, 3, 2]]
-  - [[-1, 9], 1, Concat, [1]]
-  - [-1, 3, C2f, [1024]]             # 21  (P5/32-large)
+  - [[-1, 9], 1, Concat, [1]]        #    re-fuse with SPPF output (layer 9).
+  - [-1, 3, C2f, [1024]]             # 21  (P5/32-large) — large-object detect feature.
 
-  - [[15, 18, 21], 1, Detect, [nc]]
+  - [[15, 18, 21], 1, Detect, [nc]]  # 3-scale decoupled detection head (P3/P4/P5).

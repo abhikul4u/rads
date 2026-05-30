@@ -1,34 +1,52 @@
-# YOLOv8n student for knowledge distillation.
-# Plain vanilla nano variant — no architectural enhancements. The student
-# learns from the combined teacher (CBAM + P2 + size-aware) via composite loss.
+# =============================================================================
+# Author: Rutuja Kulkarni
+# RADS Layer 3 — Knowledge-Distillation Student (YOLOv8n)
+# =============================================================================
+# This is the compact "student" model for knowledge distillation. It is a plain
+# vanilla YOLOv8-NANO — deliberately NO CBAM, NO P2 head, NO loss tricks — so it
+# stays tiny and fast enough for the RADS on-device / mobile deployment target.
+# During distillation it is trained to mimic the large combined teacher
+# (CBAM + P2 + size-aware, see configs/combined.yaml) via the composite
+# distillation loss in src.distill, transferring the teacher's accuracy into a
+# fraction of the parameters.
+#
+# The architecture graph is the standard YOLOv8 topology; the ONLY difference
+# from baseline.yaml is the `n` scale below, whose aggressive depth/width
+# multipliers shrink every block. That is what makes this the student rather
+# than another full-size variant.
 
-nc: 3
+nc: 3  # Default class count (overridden at runtime from data.yaml).
 scales:
+  # Nano scale: depth 0.33 (1/3 of the C2f repeats) and width 0.25 (1/4 of the
+  # channels) — this is the compression that yields the small student model.
   n: [0.33, 0.25, 1024]   # depth, width, max_channels
 
+# Backbone — standard YOLOv8 topology, shrunk by the nano scale above.
 backbone:
-  - [-1, 1, Conv,  [64, 3, 2]]
-  - [-1, 1, Conv,  [128, 3, 2]]
+  - [-1, 1, Conv,  [64, 3, 2]]       # 0  P1/2 stem.
+  - [-1, 1, Conv,  [128, 3, 2]]      # 1  P2/4.
   - [-1, 3, C2f,   [128, True]]
-  - [-1, 1, Conv,  [256, 3, 2]]
+  - [-1, 1, Conv,  [256, 3, 2]]      # 3  P3/8.
   - [-1, 6, C2f,   [256, True]]
-  - [-1, 1, Conv,  [512, 3, 2]]
+  - [-1, 1, Conv,  [512, 3, 2]]      # 5  P4/16.
   - [-1, 6, C2f,   [512, True]]
-  - [-1, 1, Conv,  [1024, 3, 2]]
+  - [-1, 1, Conv,  [1024, 3, 2]]     # 7  P5/32.
   - [-1, 3, C2f,   [1024, True]]
-  - [-1, 1, SPPF,  [1024, 5]]
+  - [-1, 1, SPPF,  [1024, 5]]        # 9  multi-scale context pooling.
 
+# Head (PANet) — same 3-scale topology as baseline; only the channel widths
+# differ due to the nano scale. Detect runs on P3/P4/P5 (layers 15/18/21).
 head:
   - [-1, 1, nn.Upsample, [None, 2, 'nearest']]
-  - [[-1, 6], 1, Concat, [1]]
-  - [-1, 3, C2f, [512]]
+  - [[-1, 6], 1, Concat, [1]]        # fuse with backbone P4.
+  - [-1, 3, C2f, [512]]              # 12  P4.
   - [-1, 1, nn.Upsample, [None, 2, 'nearest']]
-  - [[-1, 4], 1, Concat, [1]]
-  - [-1, 3, C2f, [256]]
+  - [[-1, 4], 1, Concat, [1]]        # fuse with backbone P3.
+  - [-1, 3, C2f, [256]]              # 15  P3/small — detect.
   - [-1, 1, Conv, [256, 3, 2]]
-  - [[-1, 12], 1, Concat, [1]]
-  - [-1, 3, C2f, [512]]
+  - [[-1, 12], 1, Concat, [1]]       # re-fuse with top-down P4 (layer 12).
+  - [-1, 3, C2f, [512]]              # 18  P4/medium — detect.
   - [-1, 1, Conv, [512, 3, 2]]
-  - [[-1, 9], 1, Concat, [1]]
-  - [-1, 3, C2f, [1024]]
-  - [[15, 18, 21], 1, Detect, [nc]]
+  - [[-1, 9], 1, Concat, [1]]        # re-fuse with SPPF output (layer 9).
+  - [-1, 3, C2f, [1024]]             # 21  P5/large — detect.
+  - [[15, 18, 21], 1, Detect, [nc]]  # 3-scale detect; trained against teacher outputs.

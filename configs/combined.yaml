@@ -1,11 +1,28 @@
-# Combined: YOLOv8l + CBAM in PANet neck + 4th detection head at stride 4.
-# Size-aware loss is applied at runtime by the train script (--variant combined).
-# Param budget: baseline ~43.7M + CBAM ~0.3M + P2 head ~1.2M ≈ 45.2M.
+# =============================================================================
+# Author: Rutuja Kulkarni
+# RADS Layer 3 — Combined Teacher Model (all enhancements together)
+# =============================================================================
+# This is the full RADS "teacher" model that stacks every enhancement on top of
+# baseline YOLOv8l simultaneously:
+#   (1) CBAM attention after each C2f in the neck (from cbam.yaml),
+#   (2) the 4th P2/stride-4 detection head for small objects (from p2head.yaml),
+#   (3) the size-aware loss, applied at runtime by the train script when invoked
+#       with --variant combined (architecture cannot express a loss change).
+# It is the strongest configuration and is later used as the teacher whose
+# outputs supervise the YOLOv8n student in knowledge distillation
+# (see configs/distill_student.yaml).
+#
+# The head below therefore combines the 4-level PANet of p2head.yaml with a CBAM
+# block after every fusion stage, so the four Detect inputs (21/25/29/33) are
+# all post-attention. Approximate parameter budget:
+#   baseline ~43.7M + CBAM ~0.3M + P2 head ~1.2M ≈ 45.2M.
 
-nc: 3
+nc: 3  # Default class count (overridden at runtime from data.yaml).
 scales:
-  l: [1.00, 1.00, 512]
+  l: [1.00, 1.00, 512]  # depth, width, max_channels — large scale, as baseline.
 
+# Backbone — identical to baseline.yaml. Layer 2 (P2/4) is tapped by the head
+# to build the small-object branch; attention is added only in the neck below.
 backbone:
   - [-1, 1, Conv,  [64, 3, 2]]       # 0  P1/2
   - [-1, 1, Conv,  [128, 3, 2]]      # 1  P2/4
@@ -18,37 +35,41 @@ backbone:
   - [-1, 3, C2f,   [1024, True]]     # 8  (scaled to 512)
   - [-1, 1, SPPF,  [1024, 5]]        # 9  (scaled to 512)
 
+# Head — 4-level PANet (P2..P5) with a CBAM block after every C2f fusion.
+# CBAM args [channels, reduction=16, kernel_size=7] are the standard defaults
+# (see cbam.yaml). The P2 branch (layers 18-21) is the small-object addition
+# from p2head.yaml. All four Detect inputs are attention-refined feature maps.
 head:
-  # Top-down P5→P4→P3→P2 with CBAM at each merge
+  # Top-down P5→P4→P3→P2, with CBAM applied at each merge.
   - [-1, 1, nn.Upsample, [None, 2, 'nearest']]   # 10
-  - [[-1, 6], 1, Concat, [1]]                    # 11
+  - [[-1, 6], 1, Concat, [1]]                    # 11  fuse with backbone P4.
   - [-1, 3, C2f, [512]]                          # 12  -> 512
-  - [-1, 1, CBAM, [512, 16, 7]]                  # 13  P4
+  - [-1, 1, CBAM, [512, 16, 7]]                  # 13  P4 attention.
 
   - [-1, 1, nn.Upsample, [None, 2, 'nearest']]   # 14
-  - [[-1, 4], 1, Concat, [1]]                    # 15
+  - [[-1, 4], 1, Concat, [1]]                    # 15  fuse with backbone P3.
   - [-1, 3, C2f, [256]]                          # 16  -> 256
-  - [-1, 1, CBAM, [256, 16, 7]]                  # 17  P3
+  - [-1, 1, CBAM, [256, 16, 7]]                  # 17  P3 attention.
 
-  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]   # 18
-  - [[-1, 2], 1, Concat, [1]]                    # 19  concat with backbone P2
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]   # 18  extend top-down to stride 4.
+  - [[-1, 2], 1, Concat, [1]]                    # 19  concat with backbone P2 (layer 2).
   - [-1, 3, C2f, [128]]                          # 20  -> 128
-  - [-1, 1, CBAM, [128, 16, 7]]                  # 21  P2 — detect
+  - [-1, 1, CBAM, [128, 16, 7]]                  # 21  P2 attention — small-object detect.
 
-  # Bottom-up P2→P3→P4→P5
-  - [-1, 1, Conv, [128, 3, 2]]                   # 22
-  - [[-1, 17], 1, Concat, [1]]                   # 23
+  # Bottom-up P2→P3→P4→P5, again with CBAM after each fusion.
+  - [-1, 1, Conv, [128, 3, 2]]                   # 22  downsample P2 -> P3.
+  - [[-1, 17], 1, Concat, [1]]                   # 23  re-fuse with attended P3 (layer 17).
   - [-1, 3, C2f, [256]]                          # 24  -> 256
-  - [-1, 1, CBAM, [256, 16, 7]]                  # 25  P3 — detect
+  - [-1, 1, CBAM, [256, 16, 7]]                  # 25  P3 attention — detect.
 
-  - [-1, 1, Conv, [256, 3, 2]]                   # 26
-  - [[-1, 13], 1, Concat, [1]]                   # 27
+  - [-1, 1, Conv, [256, 3, 2]]                   # 26  downsample P3 -> P4.
+  - [[-1, 13], 1, Concat, [1]]                   # 27  re-fuse with attended P4 (layer 13).
   - [-1, 3, C2f, [512]]                          # 28  -> 512
-  - [-1, 1, CBAM, [512, 16, 7]]                  # 29  P4 — detect
+  - [-1, 1, CBAM, [512, 16, 7]]                  # 29  P4 attention — detect.
 
-  - [-1, 1, Conv, [512, 3, 2]]                   # 30
-  - [[-1, 9], 1, Concat, [1]]                    # 31
+  - [-1, 1, Conv, [512, 3, 2]]                   # 30  downsample P4 -> P5.
+  - [[-1, 9], 1, Concat, [1]]                    # 31  re-fuse with SPPF output (layer 9).
   - [-1, 3, C2f, [1024]]                         # 32  (scaled to 512)
-  - [-1, 1, CBAM, [512, 16, 7]]                  # 33  P5 — detect
+  - [-1, 1, CBAM, [512, 16, 7]]                  # 33  P5 attention — detect.
 
-  - [[21, 25, 29, 33], 1, Detect, [nc]]
+  - [[21, 25, 29, 33], 1, Detect, [nc]]          # 4-scale detect on attended P2/P3/P4/P5.

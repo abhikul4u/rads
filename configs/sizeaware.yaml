@@ -1,14 +1,26 @@
-# Size-aware ablation: baseline YOLOv8l architecture, no architectural change.
-# The "enhancement" lives entirely in the loss function — installed at runtime
-# via src.losses.size_aware_loss.install_size_aware_loss().
+# =============================================================================
+# Author: Rutuja Kulkarni
+# RADS Layer 3 — Enhancement #3: Size-Aware Loss (architecture = baseline)
+# =============================================================================
+# This is the size-aware-loss ablation. Crucially, the ARCHITECTURE here is
+# byte-for-byte the baseline YOLOv8l — there is no architectural change at all.
+# The enhancement lives entirely in the LOSS function: at runtime the train
+# script monkey-patches Ultralytics' detection loss via
+#   src.losses.size_aware_loss.install_size_aware_loss()
+# which up-weights the regression/classification loss for small ground-truth
+# boxes so the model stops under-fitting tiny potholes/manholes (a known
+# small-object bias of the default loss).
 #
-# This config is identical to baseline.yaml; we keep it separate so each
-# ablation has its own named config file (cleaner W&B run grouping).
+# Because the loss swap happens in code, this YAML must remain identical to
+# baseline.yaml. It exists as a separately-named file purely so the ablation
+# gets its own clean run name/grouping in Weights & Biases. Do not edit the
+# graph below — keep it in lock-step with baseline.yaml.
 
-nc: 3
+nc: 3  # Default class count (overridden at runtime from data.yaml).
 scales:
-  l: [1.00, 1.00, 512]
+  l: [1.00, 1.00, 512]  # depth, width, max_channels — identical to baseline.
 
+# Backbone — identical to baseline.yaml (size-awareness is a loss-only change).
 backbone:
   - [-1, 1, Conv,  [64, 3, 2]]
   - [-1, 1, Conv,  [128, 3, 2]]
@@ -21,6 +33,7 @@ backbone:
   - [-1, 3, C2f,   [1024, True]]
   - [-1, 1, SPPF,  [1024, 5]]
 
+# Head (PANet) — identical to baseline.yaml; 3-scale Detect on P3/P4/P5.
 head:
   - [-1, 1, nn.Upsample, [None, 2, 'nearest']]
   - [[-1, 6], 1, Concat, [1]]
@@ -34,4 +47,4 @@ head:
   - [-1, 1, Conv, [512, 3, 2]]
   - [[-1, 9], 1, Concat, [1]]
   - [-1, 3, C2f, [1024]]
-  - [[15, 18, 21], 1, Detect, [nc]]
+  - [[15, 18, 21], 1, Detect, [nc]]  # 3-scale detect; loss is swapped at runtime.
